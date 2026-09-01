@@ -1,11 +1,13 @@
 {
-  "name": "floodsense",
+  "name": "floodsense-server",
   "version": "1.0.0",
-  "description": "FloodSense — Arduino flood monitoring with cloud sync",
   "private": true,
   "scripts": {
-    "install:all": "cd local-bridge && npm install && cd ../cloud-relay && npm install",
-    "start:bridge": "cd local-bridge && npm start",
-    "start:relay": "cd cloud-relay && npm start"
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.16.0",
+    "serialport": "^12.0.0"
   }
 }
