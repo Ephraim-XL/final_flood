@@ -10,7 +10,7 @@ const { ReadlineParser } = require('@serialport/parser-readline');
 const WebSocket = require('ws');
 
 // ---- Config ----
-const RELAY_URL = process.env.RELAY_URL || 'wss://floodsense.onrender.com';
+const RELAY_URL = process.env.RELAY_URL || 'ws://localhost:3000';
 const ARDUINO_BAUD = 9600;
 
 // ---- State ----
