@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FloodSense</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --safe: #10b981;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 24px;
+      width: 100%;
+      max-width: 900px;
+    }
+    header h1 { font-size: 2rem; letter-spacing: 0.5px; }
+    header .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: var(--card);
+      border: 1px solid #334155;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    header .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.2s;
+    }
+    header .dot.live {
+      background: var(--safe);
+      box-shadow: 0 0 8px var(--safe);
+      animation: pulse 1.6s infinite;
+    }
+    header .dot.error { background: var(--danger); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 900px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid #334155;
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+    }
+    .card .label {
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .card .value { font-size: 2.2rem; font-weight: 700; }
+    .card .unit { font-size: 0.9rem; color: var(--muted); margin-left: 4px; }
+    .card.warn { border-color: var(--warn); }
+    .card.danger { border-color: var(--danger); }
+
+    .gauge-wrap { grid-column: 1 / -1; }
+    .gauge {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      aspect-ratio: 2 / 1;
+      overflow: hidden;
+    }
+    .gauge-bg {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 100%;
+      background: #1e293b;
+      border: 3px solid #334155;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .gauge-fill {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(to top, var(--safe), var(--warn));
+      transition: height 0.6s ease, background 0.4s;
+      border-radius: 0 0 13px 13px;
+    }
+    .gauge-fill.warn { background: linear-gradient(to top, var(--warn), var(--danger)); }
+    .gauge-fill.danger { background: linear-gradient(to top, var(--danger), #7f1d1d); }
+    .gauge-text {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 3rem;
+      font-weight: 800;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    }
+    .gauge-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    footer {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-align: center;
+    }
+
+    .siren-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(239, 68, 68, 0.06) 0px,
+        rgba(239, 68, 68, 0.06) 40px,
+        transparent 40px,
+        transparent 80px
+      );
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 1;
+    }
+    .siren-overlay.active { opacity: 1; }
+
+    #muteBtn {
+      display: none;
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 2;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px 18px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      backdrop-filter: blur(6px);
+    }
+    #muteBtn.show { display: block; }
+  </style>
+</head>
+<body>
+  <div id="sirenOverlay" class="siren-overlay"></div>
+  <button id="muteBtn">🔔 Mute Siren</button>
+
+  <header>
+    <h1>🌊 FloodSense</h1>
+    <div class="status-pill">
+      <span id="statusDot" class="dot"></span>
+      <span id="statusText">Connecting…</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="card gauge-wrap">
+      <div class="label">Water Level</div>
+      <div class="gauge">
+        <div class="gauge-bg">
+          <div id="gaugeFill" class="gauge-fill" style="height:0%"></div>
+        </div>
+        <div id="gaugeText" class="gauge-text">--%</div>
+      </div>
+      <div class="gauge-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Distance</div>
+      <span id="distVal" class="value">--<span class="unit">cm</span></span>
+    </div>
+    <div class="card">
+      <div class="label">Water Height</div>
+      <span id="heightVal" class="value">--<span class="unit">cm</span></span>
+    </div>
+    <div class="card">
+      <div class="label">Water Level</div>
+      <span id="levelVal" class="value">--<span class="unit">%</span></span>
+    </div>
+  </div>
+
+  <footer>
+    <div>FloodSense · Arduino UNO + HC-SR04</div>
+    <div style="margin-top:4px;opacity:0.7">Real-time flood monitoring</div>
+  </footer>
+
+  <script>
+    // ============================================================
+    // FloodSense Dashboard — connects to cloud relay as viewer
+    // ============================================================
+
+    const PROTO = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const WS_URL = `${PROTO}//${location.host}`;
+
+    const dot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const gaugeFill = document.getElementById('gaugeFill');
+    const gaugeText = document.getElementById('gaugeText');
+    const distVal = document.getElementById('distVal');
+    const heightVal = document.getElementById('heightVal');
+    const levelVal = document.getElementById('levelVal');
+    const sirenOverlay = document.getElementById('sirenOverlay');
+    const muteBtn = document.getElementById('muteBtn');
+
+    let sirenPlaying = false;
+    let sirenMuted = false;
+    let sirenCtx = null;
+    let sirenNodes = null;
+    let sirenActive = false;
+
+    function setState(state, msg) {
+      dot.className = 'dot ' + (state ? state : '');
+      statusText.textContent = msg || state;
+    }
+
+    function createSiren() {
+      if (!sirenCtx) {
+        sirenCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (sirenCtx.state === 'suspended') sirenCtx.resume();
+
+      const osc = sirenCtx.createOscillator();
+      const gain = sirenCtx.createGain();
+      const lfo = sirenCtx.createOscillator();
+      const lfoGain = sirenCtx.createGain();
+
+      lfo.frequency.value = 3;
+      lfoGain.gain.value = 300;
+      lfo.connect(lfoGain);
+
+      osc.type = 'sawtooth';
+      osc.frequency.value = 900;
+      lfoGain.connect(osc.frequency);
+
+      gain.gain.value = 0.12;
+      osc.connect(gain);
+      gain.connect(sirenCtx.destination);
+
+      osc.start();
+      lfo.start();
+
+      sirenNodes = { osc, gain, lfo, lfoGain };
+      sirenPlaying = true;
+    }
+
+    function stopSiren() {
+      if (sirenNodes) {
+        try { sirenNodes.osc.stop(); } catch {}
+        try { sirenNodes.lfo.stop(); } catch {}
+        sirenNodes = null;
+      }
+      sirenPlaying = false;
+    }
+
+    function setSiren(active) {
+      if (active && !sirenPlaying && !sirenMuted) {
+        createSiren();
+        sirenOverlay.classList.add('active');
+        muteBtn.classList.add('show');
+      } else if (!active && sirenPlaying) {
+        stopSiren();
+        sirenOverlay.classList.remove('active');
+      }
+    }
+
+    muteBtn.addEventListener('click', () => {
+      sirenMuted = !sirenMuted;
+      muteBtn.textContent = sirenMuted ? '🔔 Unmute Siren' : '🔔 Mute Siren';
+      if (sirenMuted) {
+        stopSiren();
+        sirenOverlay.classList.remove('active');
+      } else {
+        const pct = parseFloat(levelVal.textContent) || 0;
+        if (pct >= 80) setSiren(true);
+      }
+    });
+
+    function updateUI(r) {
+      setState('live', 'Live');
+      if (r.distanceCm !== null) {
+        distVal.innerHTML = `${r.distanceCm.toFixed(2)}<span class="unit">cm</span>`;
+      }
+      if (r.waterHeightCm !== null) {
+        heightVal.innerHTML = `${r.waterHeightCm.toFixed(2)}<span class="unit">cm</span>`;
+      }
+      if (r.waterLevelPct !== null) {
+        const pct = r.waterLevelPct.toFixed(0);
+        levelVal.innerHTML = `${pct}<span class="unit">%</span>`;
+        gaugeText.textContent = pct + '%';
+        gaugeFill.style.height = pct + '%';
+
+        gaugeFill.className = 'gauge-fill';
+        if (pct >= 80) {
+          gaugeFill.classList.add('danger');
+          if (!sirenActive) {
+            sirenActive = true;
+            setSiren(true);
+          }
+        } else if (pct >= 55) {
+          gaugeFill.classList.add('warn');
+          if (sirenActive) {
+            sirenActive = false;
+            setSiren(false);
+          }
+        } else {
+          if (sirenActive) {
+            sirenActive = false;
+            setSiren(false);
+          }
+        }
+      }
+    }
+
+    let ws;
+    let reconnectMs = 1500;
+
+    function connect() {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        setState('', 'Connected — waiting for data...');
+        reconnectMs = 1500;
+        // Identify as viewer
+        ws.send(JSON.stringify({ type: 'hello', role: 'viewer' }));
+      };
+
+      ws.onclose = () => {
+        setState('error', `Disconnected — retrying in ${(reconnectMs/1000).toFixed(0)}s`);
+        setTimeout(connect, reconnectMs);
+        reconnectMs = Math.min(reconnectMs * 1.5, 10000);
+      };
+
+      ws.onerror = () => {};
+
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'reading') updateUI(msg.data);
+        } catch {}
+      };
+    }
+
+    connect();
+  </script>
+</body>
+</html>

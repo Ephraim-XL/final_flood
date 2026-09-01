@@ -1,0 +1,16 @@
+{
+  "name": "floodsense-bridge",
+  "version": "1.0.0",
+  "description": "FloodSense local bridge — reads Arduino sensor, forwards to cloud relay",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "serialport": "^12.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

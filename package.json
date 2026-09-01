@@ -1,0 +1,11 @@
+{
+  "name": "floodsense",
+  "version": "1.0.0",
+  "description": "FloodSense — Arduino flood monitoring with cloud sync",
+  "private": true,
+  "scripts": {
+    "install:all": "cd local-bridge && npm install && cd ../cloud-relay && npm install",
+    "start:bridge": "cd local-bridge && npm start",
+    "start:relay": "cd cloud-relay && npm start"
+  }
+}
