@@ -221,7 +221,7 @@
     // ============================================================
 
     const PROTO = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const WS_URL = `${PROTO}//${location.host}`;
+    const WS_URL = `${PROTO}//${location.host}/ws`;
 
     const dot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
